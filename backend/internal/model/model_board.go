@@ -26,6 +26,7 @@ type FarmOverview struct {
 	Records     []WorkRecord          `json:"records"`
 	Maintenance []MaintenanceReminder `json:"maintenance"`
 	Drivers     []Driver              `json:"drivers"`
+	Transfers   []Transfer            `json:"transfers"`
 	Board       DispatchBoard         `json:"board"`
 	Stats       Stats                 `json:"stats"`
 }

@@ -19,10 +19,10 @@ export const fetchFarmOverview = async (): Promise<FarmOverview> => {
 
 export const dispatchTask = async (taskId: string) => {
   const response = await fetch(`${API_BASE}/tasks/${taskId}/dispatch`, { method: 'POST' });
+  const body = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new AppException('DISPATCH_FAILED', '派单失败');
+    throw new AppException('DISPATCH_FAILED', body?.message || '派单失败');
   }
-  const body = await response.json();
   // 解包后端统一响应 {code, message, data}
   if (body && typeof body === 'object' && body.code === 0 && body.data) {
     return body.data;

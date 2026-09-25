@@ -19,9 +19,10 @@ const (
 
 // 农机状态
 const (
-	MachineIdle    = "空闲"
-	MachineWorking = "作业中"
-	MachineRepair  = "维修中"
+	MachineIdle         = "空闲"
+	MachineWorking      = "作业中"
+	MachineRepair       = "维修中"
+	MachineTransferring = "转场中"
 )
 
 // 任务状态
@@ -38,6 +39,7 @@ const (
 	CodeUnauthorized    = 40100
 	CodeForbidden       = 40300
 	CodeNotFound        = 40400
+	CodeConflict        = 40900
 	CodeInternalError   = 50000
 	CodeTooManyRequests = 42900
 )

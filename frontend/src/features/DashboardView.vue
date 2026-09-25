@@ -7,6 +7,7 @@ import MapTrackPanel from '../components/MapTrackPanel.vue';
 import MetricCard from '../components/MetricCard.vue';
 import RecordStats from '../components/RecordStats.vue';
 import TaskBoard from '../components/TaskBoard.vue';
+import TransferPanel from '../components/TransferPanel.vue';
 import { logger } from '../logger/logger';
 import { fetchFarmOverview } from '../services/storage.service';
 import type { FarmOverview } from '../types/domain';
@@ -14,8 +15,10 @@ import type { FarmOverview } from '../types/domain';
 const overview = ref<FarmOverview>();
 const loading = ref(true);
 const error = ref('');
+// 从农机档案点击“转场”时带入的默认农机编号。
+const pendingTransferMachine = ref('');
 
-onMounted(async () => {
+const loadOverview = async () => {
   try {
     overview.value = await fetchFarmOverview();
     logger.info('farm overview loaded');
@@ -24,7 +27,20 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+};
+
+const refresh = async () => {
+  await loadOverview();
+};
+
+const startTransferFor = (machineCode: string) => {
+  pendingTransferMachine.value = machineCode;
+  document
+    .getElementById('transfer-panel')
+    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+onMounted(loadOverview);
 </script>
 
 <template>
@@ -41,11 +57,24 @@ onMounted(async () => {
       </section>
 
       <section class="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-        <TaskBoard :tasks="overview.tasks" />
+        <TaskBoard
+          :tasks="overview.tasks"
+          :machines="overview.machines"
+          @dispatched="refresh"
+        />
         <MapTrackPanel :tracks="overview.tracks" />
       </section>
 
-      <MachineTable :machines="overview.machines" />
+      <MachineTable :machines="overview.machines" @transfer="startTransferFor" />
+
+      <div id="transfer-panel">
+        <TransferPanel
+          :transfers="overview.transfers"
+          :machines="overview.machines"
+          :default-machine-code="pendingTransferMachine"
+          @changed="refresh"
+        />
+      </div>
 
       <section class="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
         <RecordStats :records="overview.records" />

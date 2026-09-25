@@ -44,6 +44,9 @@ func (r *DashboardRepository) Overview() (*model.FarmOverview, error) {
 	if err := r.db.Find(&ov.Drivers).Error; err != nil {
 		return nil, fmt.Errorf("load drivers: %w", err)
 	}
+	if err := r.db.Order("created_at DESC").Find(&ov.Transfers).Error; err != nil {
+		return nil, fmt.Errorf("load transfers: %w", err)
+	}
 	ov.Board = r.board(ov)
 	ov.Stats = r.stats(ov.Records)
 	return ov, nil

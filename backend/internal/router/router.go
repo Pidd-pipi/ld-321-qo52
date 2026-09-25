@@ -22,6 +22,7 @@ func Setup(
 	redisClient *redis.Client,
 	authSvc *service.AuthService,
 	dashboardSvc *service.DashboardService,
+	transferSvc *service.TransferService,
 	hub *ws.Hub,
 	cfg *config.Config,
 	logger *slog.Logger,
@@ -32,6 +33,7 @@ func Setup(
 	healthHandler := handler.NewHealthHandler(db, redisClient)
 	authHandler := handler.NewAuthHandler(authSvc)
 	dashboardHandler := handler.NewDashboardHandler(dashboardSvc)
+	transferHandler := handler.NewTransferHandler(transferSvc)
 
 	r.GET("/healthz", healthHandler.Healthz)
 	r.GET("/readyz", healthHandler.Readyz)
@@ -54,6 +56,15 @@ func Setup(
 
 	// 任务派单（前端调用 /api/tasks/:id/dispatch，经 Nginx 映射到 /api/v1/tasks/:id/dispatch）
 	v1.POST("/tasks/:id/dispatch", dashboardHandler.Dispatch)
+
+	// 农机转场办理：发起 / 到达确认 / 申请人取消 / 转场记录查询（可按农机过滤）
+	transfers := v1.Group("/transfers")
+	{
+		transfers.GET("", transferHandler.List)
+		transfers.POST("", transferHandler.Start)
+		transfers.POST("/:id/arrive", transferHandler.Arrive)
+		transfers.POST("/:id/cancel", transferHandler.Cancel)
+	}
 
 	// WebSocket 实时轨迹
 	r.GET("/ws", func(c *gin.Context) {

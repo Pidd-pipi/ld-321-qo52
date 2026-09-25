@@ -20,7 +20,13 @@ const swaggerJSON = `{
     "/auth/me": { "get": { "summary": "当前用户", "tags": ["auth"] } },
     "/dashboard/overview": { "get": { "summary": "调度看板总览", "tags": ["dashboard"] } },
     "/dashboard/tasks/{id}/dispatch": { "post": { "summary": "一键派单", "tags": ["dashboard"] } },
-    "/dashboard/reports/work/export": { "get": { "summary": "作业报表导出", "tags": ["dashboard"] } }
+    "/dashboard/reports/work/export": { "get": { "summary": "作业报表导出", "tags": ["dashboard"] } },
+    "/transfers": {
+      "get": { "summary": "转场记录查询（可按 machineCode 过滤）", "tags": ["transfer"] },
+      "post": { "summary": "发起转场（仅空闲农机，登记目标地块和预计到达时间）", "tags": ["transfer"] }
+    },
+    "/transfers/{id}/arrive": { "post": { "summary": "到达确认（更新所属地块并恢复可派）", "tags": ["transfer"] } },
+    "/transfers/{id}/cancel": { "post": { "summary": "申请人取消（农机回到原地块）", "tags": ["transfer"] } }
   }
 }`
 

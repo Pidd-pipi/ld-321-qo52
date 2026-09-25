@@ -100,3 +100,20 @@ CREATE TABLE IF NOT EXISTS dashboard_items (
   score INT DEFAULT 0,
   created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS transfers (
+  id VARCHAR(48) PRIMARY KEY,
+  machine_code VARCHAR(32) NOT NULL,
+  machine_name VARCHAR(64) DEFAULT '',
+  from_field VARCHAR(64) DEFAULT '',
+  to_field VARCHAR(64) DEFAULT '',
+  expected_arrive_at VARCHAR(32) DEFAULT '',
+  status VARCHAR(16) DEFAULT '在途',
+  fail_reason VARCHAR(255) DEFAULT '',
+  applicant VARCHAR(64) DEFAULT '',
+  created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+  arrived_at DATETIME(3) NULL,
+  cancelled_at DATETIME(3) NULL,
+  INDEX idx_transfer_machine (machine_code),
+  INDEX idx_transfer_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

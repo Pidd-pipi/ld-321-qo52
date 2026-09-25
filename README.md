@@ -2,7 +2,7 @@
 
 > 项目类型：全栈Web应用
 
-面向农业合作社与种植大户的农机作业调度平台，支持农机资源管理、作业任务指派（推荐空闲农机/驾驶员）、实时地图轨迹监控（WebSocket + 高德地图）、作业记录统计报表、维修保养提醒与驾驶员管理。
+面向农业合作社与种植大户的农机作业调度平台，支持农机资源管理、作业任务指派（推荐空闲农机/驾驶员）、实时地图轨迹监控（WebSocket + 高德地图）、作业记录统计报表、维修保养提醒与驾驶员管理。针对跨地块借调农机场景，提供转场办理流程：仅空闲农机可发起转场并登记目标地块与预计到达时间，在途期间调度按钮拒绝派单，到达确认后更新所属地块并恢复可派，申请人可取消（取消后农机回到原地块），同一农机不可同时存在两张未结束转场单，转场记录可按农机查看（含起点、目标、状态与失败原因）。
 
 ## 快速启动（Docker Compose 一键部署，首选）
 
@@ -86,9 +86,13 @@ go run ./cmd/server
 | --- | --- | --- | --- |
 | POST | /auth/login | 登录 | - |
 | GET | /auth/me | 当前用户 | JWT |
-| GET | /dashboard/overview | 调度看板总览（农机/任务/轨迹/统计/保养/驾驶员） | - |
-| POST | /dashboard/tasks/:id/dispatch | 一键派单（推荐空闲农机与驾驶员） | - |
+| GET | /dashboard/overview | 调度看板总览（农机/任务/轨迹/统计/保养/驾驶员/转场） | - |
+| POST | /dashboard/tasks/:id/dispatch | 一键派单（推荐空闲农机与驾驶员，转场在途时拒绝） | - |
 | GET | /dashboard/reports/work/export | 作业报表导出信息 | - |
+| POST | /transfers | 发起转场（仅空闲农机，登记目标地块和预计到达时间） | - |
+| POST | /transfers/:id/arrive | 到达确认（更新所属地块并恢复可派） | - |
+| POST | /transfers/:id/cancel | 申请人取消（农机回到原地块，记录失败原因） | - |
+| GET | /transfers?machineCode=xx | 转场记录查询（可按农机编号过滤） | - |
 | GET | /ws | WebSocket 实时轨迹推送 | - |
 | GET | /healthz | 健康检查（DB + Redis） | - |
 

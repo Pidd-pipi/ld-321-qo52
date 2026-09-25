@@ -21,6 +21,21 @@ export interface Machine {
   currentTask: string;
 }
 
+export interface Transfer {
+  id: string;
+  machineCode: string;
+  machineName: string;
+  fromField: string;
+  toField: string;
+  expectedArriveAt: string;
+  status: string;
+  failReason: string;
+  applicant: string;
+  createdAt: string;
+  arrivedAt?: string | null;
+  cancelledAt?: string | null;
+}
+
 export interface FarmTask {
   id: string;
   type: string;
@@ -95,6 +110,7 @@ export interface FarmOverview {
   records: WorkRecord[];
   maintenance: MaintenanceReminder[];
   drivers: Driver[];
+  transfers: Transfer[];
   board: DispatchBoard;
   stats: {
     totalAreaMu: number;

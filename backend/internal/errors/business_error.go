@@ -1,6 +1,10 @@
 package errors
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/agridispatch/agridispatch/internal/constants"
+)
 
 // BusinessError 业务错误。
 type BusinessError struct {
@@ -15,6 +19,11 @@ func (e *BusinessError) Error() string {
 // New 构造业务错误。
 func New(code int, message string) *BusinessError {
 	return &BusinessError{Code: code, Message: message}
+}
+
+// Conflict 构造状态冲突类业务错误（HTTP 409）。
+func Conflict(message string) *BusinessError {
+	return New(constants.CodeConflict, message)
 }
 
 // ValidationError 参数校验错误。

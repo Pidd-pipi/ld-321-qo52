@@ -44,6 +44,7 @@ func Connect(dsn string, maxOpen, maxIdle, connMaxLifetime, retryCount, retryInt
 		&model.MaintenanceReminder{},
 		&model.Driver{},
 		&model.DashboardItem{},
+		&model.Transfer{},
 	); err != nil {
 		return nil, fmt.Errorf("auto migrate: %w", err)
 	}
@@ -134,6 +135,23 @@ func Seed(db *gorm.DB) error {
 	if err := db.Create(&drivers).Error; err != nil {
 		return fmt.Errorf("seed drivers: %w", err)
 	}
+	// 转场记录
+	transfers := []model.Transfer{
+		{
+			ID: "tr-seed-1", MachineCode: "NJ-2026-002", MachineName: "雷沃谷神收割机",
+			FromField: "南湾稻田", ToField: "西坡旱地", ExpectedArriveAt: "2026-06-01 07:00",
+			Status: "已到达", Applicant: "系统管理员",
+			ArrivedAt: ptrTime(time.Date(2026, 5, 31, 18, 12, 0, 0, time.Local)),
+		},
+	}
+	if err := db.Create(&transfers).Error; err != nil {
+		return fmt.Errorf("seed transfers: %w", err)
+	}
 	slog.Info("seeded agridispatch demo data")
 	return nil
+}
+
+// ptrTime 构造时间指针（种子数据的到达/取消时间）。
+func ptrTime(t time.Time) *time.Time {
+	return &t
 }

@@ -8,20 +8,27 @@ import (
 	"time"
 
 	"github.com/agridispatch/agridispatch/internal/constants"
+	apperrors "github.com/agridispatch/agridispatch/internal/errors"
 	"github.com/agridispatch/agridispatch/internal/model"
 	"github.com/agridispatch/agridispatch/internal/repository"
 	"github.com/redis/go-redis/v9"
 )
 
+// DispatchGuard 派单前置校验（转场在途时拒绝调度）。
+type DispatchGuard interface {
+	HasActiveTransfer(machineCode string) (bool, error)
+}
+
 // DashboardService 调度看板服务（带 Redis 缓存）。
 type DashboardService struct {
 	repo   *repository.DashboardRepository
+	guard  DispatchGuard
 	redis  *redis.Client
 	logger *slog.Logger
 }
 
-func NewDashboardService(repo *repository.DashboardRepository, redis *redis.Client, logger *slog.Logger) *DashboardService {
-	return &DashboardService{repo: repo, redis: redis, logger: logger}
+func NewDashboardService(repo *repository.DashboardRepository, guard DispatchGuard, redis *redis.Client, logger *slog.Logger) *DashboardService {
+	return &DashboardService{repo: repo, guard: guard, redis: redis, logger: logger}
 }
 
 // Overview 返回看板总览（优先读 Redis 缓存，未命中回源 DB 并写缓存）。
@@ -70,6 +77,22 @@ func (s *DashboardService) Dispatch(ctx context.Context, taskID string) (map[str
 	machine, err := s.repo.FindMachineByCode(task.RecommendedMachine)
 	if err != nil {
 		return nil, err
+	}
+	// 在途转场期间拒绝调度：农机尚未到达目标地块，不能派单。
+	if machine.Status == constants.MachineTransferring {
+		return nil, apperrors.Conflict(fmt.Sprintf("农机 %s 正在转场途中，暂不可派单", machine.Code))
+	}
+	if s.guard != nil {
+		active, guardErr := s.guard.HasActiveTransfer(machine.Code)
+		if guardErr != nil {
+			return nil, guardErr
+		}
+		if active {
+			return nil, apperrors.Conflict(fmt.Sprintf("农机 %s 存在未结束的转场单，暂不可派单", machine.Code))
+		}
+	}
+	if machine.Status != constants.MachineIdle {
+		return nil, apperrors.Conflict(fmt.Sprintf("农机 %s 当前为%s状态，仅空闲农机可派单", machine.Code, machine.Status))
 	}
 	machine.Status = constants.MachineWorking
 	machine.CurrentTask = fmt.Sprintf("%s %s", task.Type, task.Field)
