@@ -1,4 +1,4 @@
-import { API_BASE } from '../constants/app.constants';
+import { API_BASE, HTTP_CONFLICT } from '../constants/app.constants';
 import { AppException } from '../errors/AppException';
 import { logger } from '../logger/logger';
 import type { DashboardItem, FarmOverview } from '../types/domain';
@@ -19,10 +19,14 @@ export const fetchFarmOverview = async (): Promise<FarmOverview> => {
 
 export const dispatchTask = async (taskId: string) => {
   const response = await fetch(`${API_BASE}/tasks/${taskId}/dispatch`, { method: 'POST' });
+  const body = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new AppException('DISPATCH_FAILED', '派单失败');
+    // 在途农机派单被拒绝时，后端返回 409 与具体转场单信息，直接透传消息
+    throw new AppException(
+      response.status === HTTP_CONFLICT ? 'DISPATCH_BLOCKED' : 'DISPATCH_FAILED',
+      body?.message || '派单失败',
+    );
   }
-  const body = await response.json();
   // 解包后端统一响应 {code, message, data}
   if (body && typeof body === 'object' && body.code === 0 && body.data) {
     return body.data;

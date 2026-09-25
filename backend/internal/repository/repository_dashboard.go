@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/agridispatch/agridispatch/internal/constants"
 	"github.com/agridispatch/agridispatch/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ErrNotFound 哨兵错误。
@@ -43,6 +45,9 @@ func (r *DashboardRepository) Overview() (*model.FarmOverview, error) {
 	}
 	if err := r.db.Find(&ov.Drivers).Error; err != nil {
 		return nil, fmt.Errorf("load drivers: %w", err)
+	}
+	if err := r.db.Order("created_at DESC").Limit(constants.TransferListLimit).Find(&ov.Transfers).Error; err != nil {
+		return nil, fmt.Errorf("load transfers: %w", err)
 	}
 	ov.Board = r.board(ov)
 	ov.Stats = r.stats(ov.Records)
@@ -124,6 +129,48 @@ func (r *DashboardRepository) FindMachineByCode(code string) (*model.Machine, er
 func (r *DashboardRepository) UpdateMachine(m *model.Machine) error {
 	if err := r.db.Save(m).Error; err != nil {
 		return fmt.Errorf("update machine: %w", err)
+	}
+	return nil
+}
+
+// LockMachineTx 在事务内锁定农机行，保证并发派单/转场时状态检查不串单。
+func (r *DashboardRepository) LockMachineTx(tx *gorm.DB, code string) (*model.Machine, error) {
+	var m model.Machine
+	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&m, "code = ?", code).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("lock machine: %w", err)
+	}
+	return &m, nil
+}
+
+// SaveMachineTx 在事务内保存农机。
+func (r *DashboardRepository) SaveMachineTx(tx *gorm.DB, m *model.Machine) error {
+	if err := tx.Save(m).Error; err != nil {
+		return fmt.Errorf("save machine: %w", err)
+	}
+	return nil
+}
+
+// FindTaskForUpdate 在事务内锁定任务行。
+func (r *DashboardRepository) FindTaskForUpdate(tx *gorm.DB, id string) (*model.FarmTask, error) {
+	var t model.FarmTask
+	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&t, "id = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("lock task: %w", err)
+	}
+	return &t, nil
+}
+
+// SaveTaskTx 在事务内保存任务。
+func (r *DashboardRepository) SaveTaskTx(tx *gorm.DB, t *model.FarmTask) error {
+	if err := tx.Save(t).Error; err != nil {
+		return fmt.Errorf("save task: %w", err)
 	}
 	return nil
 }

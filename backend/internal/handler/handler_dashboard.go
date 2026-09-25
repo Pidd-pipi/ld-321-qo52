@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
+	"github.com/agridispatch/agridispatch/internal/constants"
+	bizerr "github.com/agridispatch/agridispatch/internal/errors"
 	"github.com/agridispatch/agridispatch/internal/service"
 	"github.com/agridispatch/agridispatch/internal/util"
 	"github.com/gin-gonic/gin"
@@ -36,6 +39,11 @@ func (h *DashboardHandler) Dispatch(c *gin.Context) {
 	}
 	res, err := h.dashboardSvc.Dispatch(c.Request.Context(), taskID)
 	if err != nil {
+		var blocked *bizerr.DispatchBlockedError
+		if errors.As(err, &blocked) {
+			util.Fail(c, http.StatusConflict, constants.CodeConflict, err.Error())
+			return
+		}
 		util.FailError(c, err)
 		return
 	}

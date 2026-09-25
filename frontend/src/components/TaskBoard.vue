@@ -1,14 +1,29 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus';
-import { STATUS_COLORS } from '../constants/app.constants';
+import { MACHINE_TRANSFERRING, STATUS_COLORS, TRANSFER_IN_TRANSIT } from '../constants/app.constants';
 import { dispatchTask } from '../services/storage.service';
-import type { FarmTask } from '../types/domain';
+import type { FarmTask, Machine, Transfer } from '../types/domain';
 
-defineProps<{ tasks: FarmTask[] }>();
+const props = defineProps<{
+  tasks: FarmTask[];
+  machines?: Machine[];
+  transfers?: Transfer[];
+}>();
+const emit = defineEmits<{ (e: 'dispatched'): void }>();
+
+// 推荐农机若处于在途转场，派单按钮直接禁用（后端仍会二次拦截）。
+const openTransferOf = (code: string) =>
+  (props.transfers ?? []).find((t) => t.machineCode === code && t.status === TRANSFER_IN_TRANSIT);
+const machineStatus = (code: string) => (props.machines ?? []).find((m) => m.code === code)?.status;
 
 const handleDispatch = async (task: FarmTask) => {
-  const result = await dispatchTask(task.id);
-  ElMessage.success(result.message);
+  try {
+    const result = await dispatchTask(task.id);
+    ElMessage.success(result.message);
+    emit('dispatched');
+  } catch (err) {
+    ElMessage.warning(err instanceof Error ? err.message : '派单失败');
+  }
 };
 </script>
 
@@ -29,8 +44,29 @@ const handleDispatch = async (task: FarmTask) => {
             <p class="mt-1 text-sm text-emerald-700">
               推荐 {{ task.recommendedMachine }} / {{ task.recommendedDriver }}
             </p>
+            <p
+              v-if="openTransferOf(task.recommendedMachine)"
+              class="mt-1 text-xs text-rose-600"
+            >
+              推荐农机转场前往「{{ openTransferOf(task.recommendedMachine)?.toField }}」，到达确认前不可派单
+            </p>
           </div>
-          <el-button size="small" type="primary" @click="handleDispatch(task)">一键派单</el-button>
+          <el-tooltip
+            :disabled="machineStatus(task.recommendedMachine) !== MACHINE_TRANSFERRING"
+            content="农机在途中，到达确认前不可派单"
+            placement="top"
+          >
+            <span>
+              <el-button
+                size="small"
+                type="primary"
+                :disabled="!!openTransferOf(task.recommendedMachine)"
+                @click="handleDispatch(task)"
+              >
+                一键派单
+              </el-button>
+            </span>
+          </el-tooltip>
         </div>
       </article>
     </div>

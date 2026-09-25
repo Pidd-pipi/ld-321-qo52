@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import CreateTransferDialog from '../components/CreateTransferDialog.vue';
 import DriverRoster from '../components/DriverRoster.vue';
 import MachineTable from '../components/MachineTable.vue';
 import MaintenanceList from '../components/MaintenanceList.vue';
@@ -7,17 +8,22 @@ import MapTrackPanel from '../components/MapTrackPanel.vue';
 import MetricCard from '../components/MetricCard.vue';
 import RecordStats from '../components/RecordStats.vue';
 import TaskBoard from '../components/TaskBoard.vue';
+import TransferPanel from '../components/TransferPanel.vue';
 import { logger } from '../logger/logger';
 import { fetchFarmOverview } from '../services/storage.service';
-import type { FarmOverview } from '../types/domain';
+import type { FarmOverview, Machine } from '../types/domain';
 
 const overview = ref<FarmOverview>();
 const loading = ref(true);
 const error = ref('');
 
+const reload = async () => {
+  overview.value = await fetchFarmOverview();
+};
+
 onMounted(async () => {
   try {
-    overview.value = await fetchFarmOverview();
+    await reload();
     logger.info('farm overview loaded');
   } catch (err) {
     error.value = err instanceof Error ? err.message : '加载失败';
@@ -25,6 +31,32 @@ onMounted(async () => {
     loading.value = false;
   }
 });
+
+// 转场办理
+const dialogVisible = ref(false);
+const activeMachine = ref<Machine | null>(null);
+const transferMachineFilter = ref('');
+
+const fields = computed(() => [...new Set((overview.value?.machines ?? []).map((m) => m.field).filter(Boolean))]);
+const visibleTransfers = computed(() => {
+  const list = overview.value?.transfers ?? [];
+  return transferMachineFilter.value
+    ? list.filter((t) => t.machineCode === transferMachineFilter.value)
+    : list;
+});
+
+const openTransfer = (machine: Machine) => {
+  activeMachine.value = machine;
+  dialogVisible.value = true;
+};
+
+const onDataChanged = async () => {
+  try {
+    await reload();
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '刷新失败';
+  }
+};
 </script>
 
 <template>
@@ -41,11 +73,31 @@ onMounted(async () => {
       </section>
 
       <section class="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-        <TaskBoard :tasks="overview.tasks" />
+        <TaskBoard
+          :tasks="overview.tasks"
+          :machines="overview.machines"
+          :transfers="overview.transfers"
+          @dispatched="onDataChanged"
+        />
         <MapTrackPanel :tracks="overview.tracks" />
       </section>
 
-      <MachineTable :machines="overview.machines" />
+      <MachineTable :machines="overview.machines" @transfer="openTransfer" />
+
+      <TransferPanel
+        :transfers="visibleTransfers"
+        :machines="overview.machines"
+        :machine-code="transferMachineFilter"
+        @refresh="onDataChanged"
+        @update:machine-code="transferMachineFilter = $event"
+      />
+
+      <CreateTransferDialog
+        v-model="dialogVisible"
+        :machine="activeMachine"
+        :fields="fields"
+        @created="onDataChanged"
+      />
 
       <section class="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
         <RecordStats :records="overview.records" />

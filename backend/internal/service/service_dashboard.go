@@ -3,25 +3,29 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/agridispatch/agridispatch/internal/constants"
+	bizerr "github.com/agridispatch/agridispatch/internal/errors"
 	"github.com/agridispatch/agridispatch/internal/model"
 	"github.com/agridispatch/agridispatch/internal/repository"
 	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
 )
 
 // DashboardService 调度看板服务（带 Redis 缓存）。
 type DashboardService struct {
-	repo   *repository.DashboardRepository
-	redis  *redis.Client
-	logger *slog.Logger
+	repo         *repository.DashboardRepository
+	transferRepo *repository.TransferRepository
+	redis        *redis.Client
+	logger       *slog.Logger
 }
 
-func NewDashboardService(repo *repository.DashboardRepository, redis *redis.Client, logger *slog.Logger) *DashboardService {
-	return &DashboardService{repo: repo, redis: redis, logger: logger}
+func NewDashboardService(repo *repository.DashboardRepository, transferRepo *repository.TransferRepository, redis *redis.Client, logger *slog.Logger) *DashboardService {
+	return &DashboardService{repo: repo, transferRepo: transferRepo, redis: redis, logger: logger}
 }
 
 // Overview 返回看板总览（优先读 Redis 缓存，未命中回源 DB 并写缓存）。
@@ -46,43 +50,76 @@ func (s *DashboardService) Overview(ctx context.Context) (*model.FarmOverview, e
 
 // Invalidate 使缓存失效（派单后调用）。
 func (s *DashboardService) Invalidate(ctx context.Context) {
+	if s.redis == nil {
+		return
+	}
 	if err := s.redis.Del(ctx, constants.OverviewCacheKey).Err(); err != nil {
 		s.logger.Warn("invalidate overview cache failed", "err", err)
 	}
 }
 
 // Dispatch 派单：将任务置为已派单，并同步更新农机状态为作业中。
+// 农机若存在未结束（在途）的转场单，派单一律拒绝，需先完成到达确认或取消转场。
 func (s *DashboardService) Dispatch(ctx context.Context, taskID string) (map[string]interface{}, error) {
+	// 快速预检：任务存在且未派单，真正的状态判定在事务行锁内完成。
 	task, err := s.repo.FindTask(taskID)
 	if err != nil {
 		return nil, err
 	}
 	if task.Status == constants.TaskDispatched || task.Status == constants.TaskDone {
-		return nil, fmt.Errorf("task %s is already %s", taskID, task.Status)
-	}
-	if task.RecommendedMachine == "" {
-		task.RecommendedMachine = "NJ-2026-002"
-	}
-	if task.RecommendedDriver == "" {
-		task.RecommendedDriver = "何燕"
+		return nil, fmt.Errorf("任务 %s 已处于 %s 状态，无需重复派单", taskID, task.Status)
 	}
 
-	machine, err := s.repo.FindMachineByCode(task.RecommendedMachine)
-	if err != nil {
-		return nil, err
-	}
-	machine.Status = constants.MachineWorking
-	machine.CurrentTask = fmt.Sprintf("%s %s", task.Type, task.Field)
-	if err := s.repo.UpdateMachine(machine); err != nil {
-		return nil, err
+	var machineCode, driverName string
+	txErr := s.transferRepo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		lockedTask, err := s.repo.FindTaskForUpdate(tx, taskID)
+		if err != nil {
+			return err
+		}
+		if lockedTask.Status == constants.TaskDispatched || lockedTask.Status == constants.TaskDone {
+			return fmt.Errorf("任务 %s 已处于 %s 状态，无需重复派单", taskID, lockedTask.Status)
+		}
+		if lockedTask.RecommendedMachine == "" {
+			lockedTask.RecommendedMachine = "NJ-2026-002"
+		}
+		if lockedTask.RecommendedDriver == "" {
+			lockedTask.RecommendedDriver = "何燕"
+		}
+
+		machine, err := s.repo.LockMachineTx(tx, lockedTask.RecommendedMachine)
+		if err != nil {
+			return err
+		}
+		// 在途转场单存在时一律拒绝派单。
+		if open, e := s.transferRepo.FindOpenByMachineCode(tx, machine.Code); e == nil {
+			return &bizerr.DispatchBlockedError{
+				TransferID:     open.ID,
+				MachineCode:    machine.Code,
+				ToField:        open.ToField,
+				TransferStatus: open.Status,
+			}
+		} else if !errors.Is(e, repository.ErrNotFound) {
+			return e
+		}
+
+		machine.Status = constants.MachineWorking
+		machine.CurrentTask = fmt.Sprintf("%s %s", lockedTask.Type, lockedTask.Field)
+		if err := s.repo.SaveMachineTx(tx, machine); err != nil {
+			return err
+		}
+		lockedTask.Status = constants.TaskDispatched
+		if err := s.repo.SaveTaskTx(tx, lockedTask); err != nil {
+			return err
+		}
+		machineCode, driverName = machine.Code, lockedTask.RecommendedDriver
+		return nil
+	})
+	if txErr != nil {
+		return nil, txErr
 	}
 
-	task.Status = constants.TaskDispatched
-	if err := s.repo.UpdateTask(task); err != nil {
-		return nil, err
-	}
 	s.Invalidate(ctx)
-	s.logger.Info("task dispatched", "taskId", taskID, "machine", task.RecommendedMachine, "driver", task.RecommendedDriver)
+	s.logger.Info("task dispatched", "taskId", taskID, "machine", machineCode, "driver", driverName)
 	return map[string]interface{}{
 		"taskId":  taskID,
 		"status":  constants.TaskDispatched,

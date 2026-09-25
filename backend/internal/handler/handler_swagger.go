@@ -19,8 +19,14 @@ const swaggerJSON = `{
     "/auth/login": { "post": { "summary": "登录", "tags": ["auth"] } },
     "/auth/me": { "get": { "summary": "当前用户", "tags": ["auth"] } },
     "/dashboard/overview": { "get": { "summary": "调度看板总览", "tags": ["dashboard"] } },
-    "/dashboard/tasks/{id}/dispatch": { "post": { "summary": "一键派单", "tags": ["dashboard"] } },
-    "/dashboard/reports/work/export": { "get": { "summary": "作业报表导出", "tags": ["dashboard"] } }
+    "/dashboard/tasks/{id}/dispatch": { "post": { "summary": "一键派单（在途农机返回 409 拒绝）", "tags": ["dashboard"] } },
+    "/dashboard/reports/work/export": { "get": { "summary": "作业报表导出", "tags": ["dashboard"] } },
+    "/transfers": {
+      "post": { "summary": "发起转场（仅空闲农机）", "tags": ["transfer"] },
+      "get": { "summary": "转场记录，可按 machineCode 筛选", "tags": ["transfer"] }
+    },
+    "/transfers/{id}/arrive": { "post": { "summary": "到达确认（更新所属地块并恢复可派）", "tags": ["transfer"] } },
+    "/transfers/{id}/cancel": { "post": { "summary": "申请人取消（回到原地块）", "tags": ["transfer"] } }
   }
 }`
 

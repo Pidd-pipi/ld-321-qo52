@@ -13,9 +13,9 @@ import (
 
 // Hub WebSocket 连接管理与农机实时位置推送。
 type Hub struct {
-	clients map[*websocket.Conn]bool
-	mu      sync.Mutex
-	logger  *slog.Logger
+	clients  map[*websocket.Conn]bool
+	mu       sync.Mutex
+	logger   *slog.Logger
 	upgrader websocket.Upgrader
 }
 

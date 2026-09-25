@@ -44,6 +44,7 @@ func Connect(dsn string, maxOpen, maxIdle, connMaxLifetime, retryCount, retryInt
 		&model.MaintenanceReminder{},
 		&model.Driver{},
 		&model.DashboardItem{},
+		&model.Transfer{},
 	); err != nil {
 		return nil, fmt.Errorf("auto migrate: %w", err)
 	}

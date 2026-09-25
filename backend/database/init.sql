@@ -100,3 +100,21 @@ CREATE TABLE IF NOT EXISTS dashboard_items (
   score INT DEFAULT 0,
   created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 农机转场单：地块之间借调农机的在途/到达/取消流程
+CREATE TABLE IF NOT EXISTS transfers (
+  id VARCHAR(40) PRIMARY KEY,
+  machine_code VARCHAR(32) NOT NULL,
+  from_field VARCHAR(64) NOT NULL,
+  to_field VARCHAR(64) NOT NULL,
+  estimated_arrival VARCHAR(32) NOT NULL,
+  applicant VARCHAR(64) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT '在途',
+  fail_reason VARCHAR(255) NOT NULL DEFAULT '',
+  confirmed_at DATETIME(3) NULL,
+  created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+  INDEX idx_transfer_machine_status (machine_code, status),
+  INDEX idx_transfer_created (created_at),
+  INDEX idx_transfer_confirmed (confirmed_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

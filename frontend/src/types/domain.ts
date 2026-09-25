@@ -87,6 +87,20 @@ export interface DispatchBoard {
   trendLabels: string[];
 }
 
+export interface Transfer {
+  id: string;
+  machineCode: string;
+  fromField: string;
+  toField: string;
+  estimatedArrival: string;
+  applicant: string;
+  status: string;
+  failReason: string;
+  confirmedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface FarmOverview {
   items: DashboardItem[];
   machines: Machine[];
@@ -95,6 +109,7 @@ export interface FarmOverview {
   records: WorkRecord[];
   maintenance: MaintenanceReminder[];
   drivers: Driver[];
+  transfers: Transfer[];
   board: DispatchBoard;
   stats: {
     totalAreaMu: number;

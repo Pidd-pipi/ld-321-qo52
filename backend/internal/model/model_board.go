@@ -2,12 +2,12 @@ package model
 
 // DispatchBoard 调度看板。
 type DispatchBoard struct {
-	TodayTodos     int      `json:"todayTodos"`
-	IdleMachines   int      `json:"idleMachines"`
+	TodayTodos      int      `json:"todayTodos"`
+	IdleMachines    int      `json:"idleMachines"`
 	WorkingMachines []string `json:"workingMachines"`
-	DueMaintenance []string `json:"dueMaintenance"`
-	SevenDayAreas  []int    `json:"sevenDayAreas"`
-	TrendLabels    []string `json:"trendLabels"`
+	DueMaintenance  []string `json:"dueMaintenance"`
+	SevenDayAreas   []int    `json:"sevenDayAreas"`
+	TrendLabels     []string `json:"trendLabels"`
 }
 
 // Stats 作业统计。
@@ -26,6 +26,7 @@ type FarmOverview struct {
 	Records     []WorkRecord          `json:"records"`
 	Maintenance []MaintenanceReminder `json:"maintenance"`
 	Drivers     []Driver              `json:"drivers"`
+	Transfers   []Transfer            `json:"transfers"`
 	Board       DispatchBoard         `json:"board"`
 	Stats       Stats                 `json:"stats"`
 }
